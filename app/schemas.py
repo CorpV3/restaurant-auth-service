@@ -171,3 +171,53 @@ class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None
     status_code: int
+
+
+# ─── Partner Schemas ───────────────────────────────────────────────────────────
+
+class PartnerSignup(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=100)
+    full_name: str = Field(..., min_length=1, max_length=255)
+    company_name: Optional[str] = None
+    phone: Optional[str] = None
+    commission_type: str = Field(default="percent", pattern="^(percent|fixed)$")
+    commission_value: float = Field(default=10.0, ge=0)
+
+
+class PartnerLogin(BaseModel):
+    username: str
+    password: str
+
+
+class PartnerUpdate(BaseModel):
+    full_name: Optional[str] = None
+    company_name: Optional[str] = None
+    phone: Optional[str] = None
+    commission_type: Optional[str] = Field(None, pattern="^(percent|fixed)$")
+    commission_value: Optional[float] = Field(None, ge=0)
+
+
+class PartnerResponse(BaseModel):
+    id: UUID4
+    username: str
+    email: str
+    full_name: str
+    company_name: Optional[str] = None
+    phone: Optional[str] = None
+    commission_type: str
+    commission_value: float
+    is_approved: bool
+    is_active: bool
+    created_at: datetime
+    last_login: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class PartnerTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    partner: PartnerResponse

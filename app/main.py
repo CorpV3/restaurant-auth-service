@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from shared.config.settings import settings
 from shared.utils.logger import setup_logger
 from .database import init_db, close_db
-from .routes import auth, users
+from .routes import auth, users, partners
 import time
 
 # Setup logger
@@ -62,6 +62,7 @@ async def log_headers(request: Request, call_next):
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/v1/auth", tags=["User Management"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
+app.include_router(partners.router, prefix="/api/v1/partners", tags=["Partners"])
 
 
 @app.get("/", status_code=status.HTTP_200_OK)

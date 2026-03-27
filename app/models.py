@@ -2,7 +2,7 @@
 Database models for Auth Service
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from .database import Base
@@ -68,3 +68,33 @@ class PasswordReset(Base):
 
     def __repr__(self):
         return f"<PasswordReset(user_id={self.user_id}, used={self.is_used})>"
+
+
+class Partner(Base):
+    """Partner (referral agent) model"""
+
+    __tablename__ = "partners"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(255), nullable=False)
+    company_name = Column(String(255), nullable=True)
+    phone = Column(String(20), nullable=True)
+
+    # Commission defaults (can be overridden per restaurant)
+    commission_type = Column(String(20), default="percent")  # percent | fixed
+    commission_value = Column(Float, default=10.0)           # % or fixed amount
+
+    # Status
+    is_approved = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    last_login = Column(DateTime, nullable=True)
+
+    def __repr__(self):
+        return f"<Partner(id={self.id}, username={self.username}, approved={self.is_approved})>"
