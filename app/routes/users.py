@@ -222,7 +222,8 @@ async def create_chef(
         hashed_password=hash_password(user_data.password),
         role=UserRole.CHEF,
         restaurant_id=user_data.restaurant_id,
-        is_active=True
+        is_active=True,
+        pos_passcode=hash_password(user_data.pos_passcode) if user_data.pos_passcode else None,
     )
 
     db.add(new_user)
@@ -311,7 +312,8 @@ async def create_staff(
         hashed_password=hash_password(user_data.password),
         role=UserRole.STAFF,
         restaurant_id=user_data.restaurant_id,
-        is_active=True
+        is_active=True,
+        pos_passcode=hash_password(user_data.pos_passcode) if user_data.pos_passcode else None,
     )
 
     db.add(new_user)
@@ -445,6 +447,11 @@ async def update_staff(
     # Hash password if provided
     if 'password' in update_data and update_data['password']:
         update_data['hashed_password'] = hash_password(update_data.pop('password'))
+
+    # Hash pos_passcode if provided
+    if 'pos_passcode' in update_data:
+        pc = update_data.pop('pos_passcode')
+        update_data['pos_passcode'] = hash_password(pc) if pc else None
 
     for field, value in update_data.items():
         if hasattr(user, field):

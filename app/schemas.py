@@ -46,6 +46,7 @@ class StaffCreate(UserBase):
     """Schema for staff creation (chef/customer) by restaurant admin"""
     password: str = Field(..., min_length=8, max_length=100)
     restaurant_id: UUID4
+    pos_passcode: Optional[str] = Field(None, min_length=4, max_length=4, pattern=r'^\d{4}$')
 
 
 class UserUpdate(BaseModel):
@@ -85,6 +86,7 @@ class StaffUpdate(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = Field(None, min_length=8, max_length=100)
     is_active: Optional[bool] = None
+    pos_passcode: Optional[str] = Field(None, min_length=4, max_length=4, pattern=r'^\d{4}$')
 
 
 class UserResponse(UserBase):
@@ -221,3 +223,27 @@ class PartnerTokenResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     partner: PartnerResponse
+
+
+# ─── POS Passcode Auth Schemas ──────────────────────────────────────────────
+
+class POSStaffMember(BaseModel):
+    """Minimal staff info shown on POS login screen (no sensitive data)"""
+    id: UUID4
+    full_name: str
+    role: str
+
+    model_config = {"from_attributes": True}
+
+
+class POSPasscodeLoginRequest(BaseModel):
+    restaurant_id: UUID4
+    passcode: str = Field(..., min_length=4, max_length=4, pattern=r'^\d{4}$')
+
+
+class POSLoginResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: UserResponse

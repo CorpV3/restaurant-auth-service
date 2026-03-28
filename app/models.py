@@ -25,6 +25,9 @@ class User(Base):
     # Foreign keys (restaurant_id for restaurant_admin and chef)
     restaurant_id = Column(UUID(as_uuid=True), nullable=True, index=True)
 
+    # POS passcode — optional 4-digit PIN (hashed) for quick POS login
+    pos_passcode = Column(String(255), nullable=True)
+
     # Status
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
