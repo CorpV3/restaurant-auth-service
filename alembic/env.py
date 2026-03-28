@@ -5,18 +5,13 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
-sys_path_dir = os.path.dirname(os.path.dirname(__file__))
-import sys
-sys.path.insert(0, sys_path_dir)
-
-from app.models import Base
-
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = Base.metadata
+# target_metadata not needed for running explicit migrations (only for autogenerate)
+target_metadata = None
 
 
 def get_url():
