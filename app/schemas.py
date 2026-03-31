@@ -146,9 +146,14 @@ class PasswordResetConfirm(BaseModel):
 
 
 class PasswordChange(BaseModel):
-    """Schema for password change"""
-    old_password: str
+    """Schema for password change — accepts old_password or current_password"""
+    old_password: Optional[str] = None
+    current_password: Optional[str] = None  # alias for old_password
     new_password: str = Field(..., min_length=8, max_length=100)
+
+    @property
+    def resolved_old_password(self) -> str:
+        return self.old_password or self.current_password or ""
 
 
 class PasswordVerifyRequest(BaseModel):
@@ -238,7 +243,8 @@ class POSStaffMember(BaseModel):
 
 
 class POSPasscodeLoginRequest(BaseModel):
-    restaurant_id: UUID4
+    restaurant_id: Optional[UUID4] = None
+    restaurant_code: Optional[str] = Field(None, min_length=5, max_length=5)  # 5-char UUID prefix
     passcode: str = Field(..., min_length=4, max_length=4, pattern=r'^\d{4}$')
 
 

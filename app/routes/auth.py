@@ -290,8 +290,8 @@ async def change_password(
             detail="User not found"
         )
 
-    # Verify old password
-    if not verify_password(password_data.old_password, user.hashed_password):
+    # Verify old password (accepts old_password or current_password)
+    if not verify_password(password_data.resolved_old_password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid old password"
