@@ -22,6 +22,10 @@ COPY alembic/ /app/alembic/
 # Copy service code
 COPY app/ /app/app/
 
+# Migration bootstrap script
+COPY migrate.sh /app/migrate.sh
+RUN chmod +x /app/migrate.sh
+
 # Expose port
 EXPOSE 8001
 

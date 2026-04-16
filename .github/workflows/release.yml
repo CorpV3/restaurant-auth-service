@@ -37,6 +37,121 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # ── STAGE: Migrate staging DB first ─────────────────────────────────
+      # Runs migrate.sh against restaurant-test. If it fails, the release
+      # aborts here — prod is never touched and old pods keep running.
+      - name: Migrate DB — staging (restaurant-test)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          password: ${{ secrets.PROD_SSH_PASSWORD }}
+          script: |
+            set -e
+            IMAGE="${{ env.DOCKER_IMAGE }}:${{ github.event.release.tag_name }}"
+            JOB="db-migrate-${{ env.SERVICE_NAME }}"
+            NS="restaurant-test"
+
+            echo "=== Staging migration: $IMAGE in $NS ==="
+            kubectl delete job $JOB -n $NS --ignore-not-found=true 2>/dev/null || true
+            sleep 2
+
+            cat > /tmp/${JOB}.yaml << JOBEOF
+            apiVersion: batch/v1
+            kind: Job
+            metadata:
+              name: ${JOB}
+              namespace: ${NS}
+            spec:
+              backoffLimit: 0
+              ttlSecondsAfterFinished: 600
+              template:
+                spec:
+                  restartPolicy: Never
+                  containers:
+                  - name: migrate
+                    image: ${IMAGE}
+                    imagePullPolicy: Always
+                    command: ["/bin/bash", "/app/migrate.sh"]
+                    env:
+                    - name: DATABASE_URL
+                      valueFrom:
+                        configMapKeyRef:
+                          name: restaurant-config
+                          key: DATABASE_URL
+            JOBEOF
+
+            kubectl apply -f /tmp/${JOB}.yaml
+            echo "Waiting for staging migration (max 3 min)..."
+            kubectl wait job/$JOB -n $NS --for=condition=complete --timeout=180s || {
+              echo "=== MIGRATION FAILED (staging) ==="
+              kubectl logs -n $NS job/$JOB 2>/dev/null || true
+              kubectl delete job $JOB -n $NS --ignore-not-found=true
+              exit 1
+            }
+            echo "=== Staging migration logs ==="
+            kubectl logs -n $NS job/$JOB
+            kubectl delete job $JOB -n $NS --ignore-not-found=true
+
+      # ── STAGE: Migrate prod DB ───────────────────────────────────────────
+      # Only runs if staging migration passed. Prod image is NOT updated until
+      # this step succeeds — old pods keep serving traffic throughout.
+      - name: Migrate DB — prod (restaurant-prod)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          password: ${{ secrets.PROD_SSH_PASSWORD }}
+          script: |
+            set -e
+            IMAGE="${{ env.DOCKER_IMAGE }}:${{ github.event.release.tag_name }}"
+            JOB="db-migrate-${{ env.SERVICE_NAME }}"
+            NS="restaurant-prod"
+
+            echo "=== Prod migration: $IMAGE in $NS ==="
+            kubectl delete job $JOB -n $NS --ignore-not-found=true 2>/dev/null || true
+            sleep 2
+
+            cat > /tmp/${JOB}-prod.yaml << JOBEOF
+            apiVersion: batch/v1
+            kind: Job
+            metadata:
+              name: ${JOB}
+              namespace: ${NS}
+            spec:
+              backoffLimit: 0
+              ttlSecondsAfterFinished: 600
+              template:
+                spec:
+                  restartPolicy: Never
+                  containers:
+                  - name: migrate
+                    image: ${IMAGE}
+                    imagePullPolicy: Always
+                    command: ["/bin/bash", "/app/migrate.sh"]
+                    env:
+                    - name: DATABASE_URL
+                      valueFrom:
+                        configMapKeyRef:
+                          name: restaurant-config
+                          key: DATABASE_URL
+            JOBEOF
+
+            kubectl apply -f /tmp/${JOB}-prod.yaml
+            echo "Waiting for prod migration (max 3 min)..."
+            kubectl wait job/$JOB -n $NS --for=condition=complete --timeout=180s || {
+              echo "=== MIGRATION FAILED (prod) ==="
+              kubectl logs -n $NS job/$JOB 2>/dev/null || true
+              kubectl delete job $JOB -n $NS --ignore-not-found=true
+              exit 1
+            }
+            echo "=== Prod migration logs ==="
+            kubectl logs -n $NS job/$JOB
+            kubectl delete job $JOB -n $NS --ignore-not-found=true
+
+      # ── STAGE: Deploy ────────────────────────────────────────────────────
+      # Both migrations passed — safe to update image tag and let ArgoCD deploy.
+      # The init container (migrate.sh) will be a no-op since DB is already at head.
       - name: Checkout infrastructure repo
         uses: actions/checkout@v4
         with:
@@ -70,4 +185,5 @@ jobs:
           echo "- **Service**: ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Version**: ${{ github.event.release.tag_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Image**: ${{ env.DOCKER_IMAGE }}:${{ github.event.release.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **DB migrations**: ran on staging ✓ then prod ✓" >> $GITHUB_STEP_SUMMARY
           echo "- **ArgoCD will automatically sync prod**" >> $GITHUB_STEP_SUMMARY
